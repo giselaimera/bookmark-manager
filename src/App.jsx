@@ -79,14 +79,16 @@ const App = () => {
 
   const getFilteredBookmarks = () => {
     if (!searchTerm.trim()) return bookmark;
-    return bookmark.filter((item) =>
-      item.title.toLowerCase().includes(searchTerm.toLowerCase())
+    return bookmark.filter(
+      (item) =>
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.tag.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
 
-  const searchTitle = (formData) => {
-    const searchTitle = formData.get("search");
-    setSearchTerm(searchTitle);
+  const searchText = (formData) => {
+    const searchText = formData.get("search");
+    setSearchTerm(searchText);
   };
 
   const filteredBookmarks = getFilteredBookmarks();
@@ -94,7 +96,7 @@ const App = () => {
   return (
     <div className="container mt-5">
       <h1 className="text-center mb-4">📌 Bookmark Manager</h1>
-      <Search searchTitle={searchTitle} searchTerm={searchTerm} />
+      <Search searchTitle={searchText} searchTerm={searchTerm} />
       <BookmarkForm
         addBookmark={addBookmark}
         showModal={showModal}
@@ -305,7 +307,7 @@ const Search = ({ searchTitle, searchTerm }) => {
           type="text"
           className="form-control"
           name="search"
-          placeholder="Search for a title..."
+          placeholder="Search for a title or tag..."
           defaultValue={searchTerm}
         />
       </div>
