@@ -1,5 +1,32 @@
 import React from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
+import Search from "./components/Search";
+import Modal from "./components/Modal";
+import BookmarkList from "./components/BookmarkList";
+import BookmarkForm from "./components/BookmarkForm";
+
+const themeColors = {
+  light: {
+    background: "#f8f9fa",
+    containerBg: "#ffffff",
+    cardBg: "#ffffff",
+    text: "#212529",
+    accent: "#4361ee",
+    buttonBg: "#f8f9fa",
+    buttonText: "#212529",
+    border: "#dee2e6",
+  },
+  dark: {
+    background: "#121212",
+    containerBg: "#1e1e1e",
+    cardBg: "#2d2d2d",
+    text: "#e0e0e0",
+    accent: "#4895ef",
+    buttonBg: "#2d2d2d",
+    buttonText: "#e0e0e0",
+    border: "#444444",
+  },
+};
 
 const bookmarkReducer = (state, action) => {
   switch (action.type) {
@@ -13,6 +40,13 @@ const bookmarkReducer = (state, action) => {
           ? { ...bookmark, ...action.payload }
           : bookmark
       );
+    case "SORT_BY_TITLE":
+      const sorted = [...state].sort((a, b) => {
+        if (action.payload === "asc") return a.title.localeCompare(b.title);
+        if (action.payload === "desc") return b.title.localeCompare(a.title);
+        return 0;
+      });
+      return sorted;
     default:
       return state;
   }
@@ -26,10 +60,26 @@ const App = () => {
   const [editingBookmark, setEditingBookmark] = React.useState(null);
   const [showModal, setShowModal] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [theme, setTheme] = React.useState(
+    localStorage.getItem("theme") || "light"
+  );
+
+  const colors = themeColors[theme];
+
+  React.useEffect(() => {
+    document.body.setAttribute("data-bs-theme", theme);
+    document.body.style.backgroundColor = colors.background;
+    document.body.style.color = colors.text;
+    localStorage.setItem("theme", theme);
+  }, [theme, colors]);
 
   React.useEffect(() => {
     localStorage.setItem("bookmark", JSON.stringify(bookmark));
   }, [bookmark]);
+
+  const toggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
+  };
 
   const addBookmark = (formData) => {
     const title = formData.get("title");
@@ -91,23 +141,100 @@ const App = () => {
     setSearchTerm(searchText);
   };
 
+  const handleSort = (order) => {
+    dispatchBookmark({
+      type: "SORT_BY_TITLE",
+      payload: order,
+    });
+  };
+
   const filteredBookmarks = getFilteredBookmarks();
+
+  const toggleButtonStyle = {
+    backgroundColor: theme === "light" ? "#e9ecef" : "#2d2d2d",
+    color: theme === "light" ? "#212529" : "#e0e0e0",
+    border: "none",
+    borderRadius: "50%",
+    width: "46px",
+    height: "46px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    transition: "all 0.3s ease",
+    boxShadow:
+      theme === "light"
+        ? "0 2px 5px rgba(0,0,0,0.1)"
+        : "0 2px 5px rgba(0,0,0,0.3)",
+  };
+
+  const containerStyle = {
+    backgroundColor: colors.containerBg,
+    borderRadius: "12px",
+    padding: "20px",
+    boxShadow:
+      theme === "light"
+        ? "0 4px 6px rgba(0,0,0,0.05)"
+        : "0 4px 6px rgba(0,0,0,0.2)",
+    border: `1px solid ${colors.border}`,
+    transition: "all 0.3s ease",
+    height: "100%",
+  };
 
   return (
     <div className="container mt-5">
-      <h1 className="text-center mb-4">📌 Bookmark Manager</h1>
-      <Search searchTitle={searchText} searchTerm={searchTerm} />
-      <BookmarkForm
-        addBookmark={addBookmark}
-        showModal={showModal}
-        saveChanges={saveChanges}
-        editingBookmark={editingBookmark}
-      />
-      <BookmarkList
-        bookmarks={filteredBookmarks}
-        deleteBookmark={deleteBookmark}
-        editBookmark={editBookmark}
-      />
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 style={{ color: colors.text, fontWeight: "600" }}>
+          📌 Bookmark Manager
+        </h1>
+        <button
+          className="btn"
+          onClick={toggleTheme}
+          style={toggleButtonStyle}
+          aria-label={
+            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+          }
+        >
+          {theme === "light" ? (
+            <i className="bi bi-moon-fill"></i>
+          ) : (
+            <i className="bi bi-brightness-high-fill"></i>
+          )}
+        </button>
+      </div>
+
+      <div className="text-center mb-4">
+        <Search searchTitle={searchText} searchTerm={searchTerm} />
+      </div>
+
+      <div className="row g-4">
+        <div className="col-md-6">
+          <div style={containerStyle}>
+            <BookmarkForm
+              addBookmark={addBookmark}
+              showModal={showModal}
+              saveChanges={saveChanges}
+              editingBookmark={editingBookmark}
+            />
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div
+            style={{
+              ...containerStyle,
+              maxHeight: "500px",
+              overflowY: filteredBookmarks.length > 2 ? "auto" : "hidden",
+            }}
+          >
+            <BookmarkList
+              bookmarks={filteredBookmarks}
+              deleteBookmark={deleteBookmark}
+              editBookmark={editBookmark}
+              handleSort={handleSort}
+            />
+          </div>
+        </div>
+      </div>
+
       {!showModal ? null : (
         <Modal
           showModal={showModal}
@@ -117,201 +244,6 @@ const App = () => {
         />
       )}
     </div>
-  );
-};
-
-const ActionButton = ({ type, className, label, onClick }) => {
-  return (
-    <button type={type} className={className} onClick={onClick}>
-      {label}
-    </button>
-  );
-};
-
-const Modal = ({ showModal, saveChanges, closeModal, editingBookmark }) => {
-  return (
-    <div
-      className="modal show d-block"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-    >
-      <div className="modal-dialog">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">Edit Bookmark</h5>
-            <ActionButton
-              type="button"
-              className="btn-close"
-              onClick={() => closeModal()}
-            />
-          </div>
-          <div className="modal-body">
-            <BookmarkForm
-              showModal={showModal}
-              saveChanges={saveChanges}
-              editingBookmark={editingBookmark}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const BookmarkForm = ({
-  addBookmark,
-  showModal,
-  saveChanges,
-  editingBookmark,
-}) => {
-  return (
-    <form action={showModal ? saveChanges : addBookmark} className="mb-4">
-      <div className="mb-3">
-        <label htmlFor="title" className="form-label">
-          Title
-        </label>
-        <input
-          type="text"
-          id="title"
-          name="title"
-          className="form-control"
-          defaultValue={showModal ? editingBookmark?.title : ""}
-          required
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="url" className="form-label">
-          URL
-        </label>
-        <input
-          type="url"
-          id="url"
-          name="url"
-          className="form-control"
-          defaultValue={showModal ? editingBookmark?.url : ""}
-          placeholder="e.g., https://example.com"
-          required
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="tag" className="form-label">
-          Tag (optional)
-        </label>
-        <input
-          type="text"
-          id="tag"
-          name="tag"
-          className="form-control"
-          defaultValue={showModal ? editingBookmark?.tag : ""}
-        />
-      </div>
-      {!showModal ? (
-        <ActionButton
-          type="submit"
-          className="btn btn-primary"
-          label={
-            <>
-              <i className="bi bi-house me-1" />
-              Add Bookmark
-            </>
-          }
-        />
-      ) : (
-        <ActionButton
-          type="submit"
-          className="btn btn-primary"
-          label={
-            <>
-              <i className="bi bi-floppy-fill me-1" />
-              Save Changes
-            </>
-          }
-        />
-      )}
-    </form>
-  );
-};
-
-const BookmarkList = ({ bookmarks, deleteBookmark, editBookmark }) => {
-  return (
-    <div>
-      <h2 className="mb-3">Your Bookmarks</h2>
-      {bookmarks.length === 0 ? (
-        <p className="text-muted">Nothing bookmarked yet.</p>
-      ) : (
-        bookmarks.map((bookmark) => (
-          <BookmarkItem
-            key={bookmark.id}
-            bookmark={bookmark}
-            deleteBookmark={deleteBookmark}
-            editBookmark={editBookmark}
-          />
-        ))
-      )}
-    </div>
-  );
-};
-
-const BookmarkItem = ({
-  bookmark: { id, title, url, tag },
-  deleteBookmark,
-  editBookmark,
-}) => {
-  return (
-    <div className="card mb-3 shadow-sm">
-      <div className="card-body">
-        <h5 className="card-title">
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            {title}
-          </a>
-        </h5>
-        <p className="card-text mb-1">
-          <strong>URL:</strong> {url}
-        </p>
-        <p className="card-text mb-2">
-          <strong>Tag:</strong> {tag ? tag : "No tag provided"}
-        </p>
-        <ActionButton
-          type="button"
-          className="btn btn-danger btn-sm me-2"
-          label={
-            <>
-              <i className="bi bi-trash me-1"></i> Delete
-            </>
-          }
-          onClick={() => deleteBookmark(id)}
-        />
-        <ActionButton
-          type="button"
-          className="btn btn-secondary btn-sm"
-          label={
-            <>
-              <i className="bi bi-pencil me-1"></i> Edit
-            </>
-          }
-          onClick={() => editBookmark(id)}
-        />
-      </div>
-    </div>
-  );
-};
-
-const Search = ({ searchTitle, searchTerm }) => {
-  return (
-    <form action={searchTitle} className="mb-3">
-      <div className="d-flex">
-        <label htmlFor="search" className="form-label me-2">
-          <i className="bi bi-search me-2" />
-        </label>
-        <input
-          id="search"
-          type="text"
-          className="form-control"
-          name="search"
-          placeholder="Search for a title or tag..."
-          defaultValue={searchTerm}
-        />
-      </div>
-    </form>
   );
 };
 
